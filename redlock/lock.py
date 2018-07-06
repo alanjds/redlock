@@ -195,7 +195,7 @@ class RedLock(object):
                 self.release_node(node)
             self._lock_is_mine = False
         else:
-            # As in threading.Lock, I should be able unlock other machines too
+            # As in threading.Lock, I should be able unlock other "threads" locked too
             deleted = 0
             for node in self.redis_nodes:
                 try:
