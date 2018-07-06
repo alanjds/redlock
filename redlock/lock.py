@@ -85,6 +85,7 @@ class RedLock(object):
         self.retry_times = retry_times
         self.retry_delay = retry_delay
         self.ttl = ttl
+        self._lock_is_mine = False
 
         if created_by_factory:
             self.factory = None
@@ -179,6 +180,7 @@ class RedLock(object):
 
             validity = self.ttl - (elapsed_milliseconds + drift)
             if acquired_node_count >= self.quorum and validity > 0:
+                self._lock_is_mine = True
                 return True, validity
             else:
                 for node in self.redis_nodes:
@@ -187,8 +189,22 @@ class RedLock(object):
         return False, 0
 
     def release(self):
-        for node in self.redis_nodes:
-            self.release_node(node)
+        if self._lock_is_mine:
+            # Because of the timeout, I should unlock only my own locks
+            for node in self.redis_nodes:
+                self.release_node(node)
+            self._lock_is_mine = False
+        else:
+            # As in threading.Lock, I should be able unlock other machines too
+            deleted = 0
+            for node in self.redis_nodes:
+                try:
+                    if node.delete(self.resource):
+                        deleted += 1
+                except (redis.exceptions.ConnectionError, redis.exceptions.TimeoutError):
+                    pass
+            if deleted < self.quorum:
+                raise RuntimeError('release unlocked lock')
 
 
 class ReentrantRedLock(RedLock):

@@ -4,6 +4,8 @@ import mock
 import time
 import unittest
 
+import pytest
+
 
 def test_default_connection_details_value():
     """
@@ -21,6 +23,12 @@ def test_simple_lock():
     locked = lock.acquire()
     lock.release()
     assert locked == True
+
+
+def test_release_unlocked():
+    lock = RedLock("test_release_unlocked")
+    with pytest.raises(RuntimeError):
+        lock.release()
 
 
 def test_lock_with_validity():
